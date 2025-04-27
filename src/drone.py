@@ -14,13 +14,13 @@ class Drone:
                 If drone is connected to different machine (at X.X.X.X), then command must first be sent to X.X.X.X, then executed on connected drone.
                 (There must be a localhost drone instance listening on X.X.X.X)
         '''
-        self.drone = Tello()
-        self.drone.connect()
         self.local = ip in ['localhost', '127.0.0.1']
 
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.local:
+            self.drone = Tello()
+            self.drone.connect()
             # Server mode (listen for commands to control the drone)
             self._setup_server(port)
         else:
