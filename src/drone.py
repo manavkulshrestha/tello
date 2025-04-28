@@ -21,10 +21,10 @@ class Drone:
         if self.local:
             self.drone = Tello()
             self.drone.connect()
-            # Server mode (listen for commands to control the drone)
+            if verbose:
+                print(self.drone.get_battery())
             self._setup_server(port)
         else:
-            # Client mode (connect to remote drone server)
             self._setup_client(ip, port)
 
         self.verbose = verbose
@@ -32,7 +32,7 @@ class Drone:
 
     def _setup_server(self, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind(('0.0.0.0', port))
+        self.sock.bind(('0.0.0.0', port)) # listen on all ip's for convenience
         self.sock.listen()
 
         if self.verbose:
@@ -46,29 +46,28 @@ class Drone:
 
     def _handle_client(self, conn):
         while True:
-            data = self._recv(conn)
+            data = self._recv(conn) # blocking
             if data:
                 getattr(self.drone, data['name'])(*data['args'], **data['kwargs'])
             else:
                 if self.verbose:
-                    print('Something went wrong. No data received. Closing connection.')
+                    print('Closing connection.')
                 break
         conn.close()
 
     def _setup_client(self, ip, port):
-        # Set up client socket to connect to the remote server
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((ip, port))
 
-    def _recv(self):
-        raw_msglen = self.sock.recv(4)
+    def _recv(self, conn):
+        raw_msglen = conn.recv(4)
         if not raw_msglen:
             return None
         msglen = int.from_bytes(raw_msglen, byteorder='big')
 
         data = b''
         while len(data) < msglen:
-            packet = self.sock.recv(min(self._BUFFER_SIZE, msglen - len(data)))
+            packet = conn.recv(min(self._BUFFER_SIZE, msglen - len(data)))
             if not packet:
                 return None
             data += packet
@@ -82,7 +81,8 @@ class Drone:
     def __getattr__(self, name):
         def dummy_dronefunc(*args, **kwargs):
             if self.local:
-                getattr(self.drone, name)(*args, **kwargs)
+                # getattr(self.drone, name)(*args, **kwargs) # not really used since localhost drone will always be listening for commands
+                raise NotImplementedError
             else:
                 self._send({'name': name, 'args': args, 'kwargs': kwargs})
         return dummy_dronefunc
