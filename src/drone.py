@@ -21,14 +21,14 @@ class Drone:
         if self.local:
             self.drone = Tello()
             self.drone.connect()
-            if verbose:
-                print(self.drone.get_battery())
+            # if verbose:
+            print(self.drone.get_battery())
             self._setup_server(port)
         else:
             self._setup_client(ip, port)
 
         self.verbose = verbose
-        self._BUFFER_SIZE = 1024
+        # self._BUFFER_SIZE = 1024
 
     def _setup_server(self, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -49,7 +49,7 @@ class Drone:
             data = self._recv(conn) # blocking
             if data:
                 ret = getattr(self.drone, data['name'])(*data['args'], **data['kwargs'])
-                self._send(ret, conn=conn)
+                # self._send(ret, conn=conn)
             else:
                 if self.verbose:
                     print('Closing connection.')
@@ -68,7 +68,7 @@ class Drone:
 
         data = b''
         while len(data) < msglen:
-            packet = conn.recv(min(self._BUFFER_SIZE, msglen - len(data)))
+            packet = conn.recv(min(1024, msglen - len(data)))
             if not packet:
                 return None
             data += packet
@@ -83,7 +83,8 @@ class Drone:
     def __getattr__(self, name):
         def dummy_dronefunc(*args, **kwargs):
             getret = kwargs.get('return', False)
-            del kwargs['return']
+            if 'return' in kwargs:
+                del kwargs['return']
             if self.local:
                 # getattr(self.drone, name)(*args, **kwargs) # not really used since localhost drone will always be listening for commands
                 raise NotImplementedError
