@@ -42,13 +42,14 @@ class Drone:
         if self.verbose:
             print(f"Connection established with {addr}")
 
-        self._handle_client(conn) # blocking
+        self._handle_client(conn) # blocking - it'll stay here until connection closed
 
     def _handle_client(self, conn):
         while True:
             data = self._recv(conn) # blocking
             if data:
-                getattr(self.drone, data['name'])(*data['args'], **data['kwargs'])
+                ret = getattr(self.drone, data['name'])(*data['args'], **data['kwargs'])
+                self._send(ret, conn=conn)
             else:
                 if self.verbose:
                     print('Closing connection.')
@@ -73,16 +74,21 @@ class Drone:
             data += packet
         return pickle.loads(data)
 
-    def _send(self, obj):
+    def _send(self, obj, conn=None):
+        conn = self.sock if conn is None else conn
         data = pickle.dumps(obj)
-        self.sock.sendall(len(data).to_bytes(4, byteorder='big'))
-        self.sock.sendall(data)
+        conn.sendall(len(data).to_bytes(4, byteorder='big'))
+        conn.sendall(data)
 
     def __getattr__(self, name):
         def dummy_dronefunc(*args, **kwargs):
+            getret = kwargs.get('return', False)
+            del kwargs['return']
             if self.local:
                 # getattr(self.drone, name)(*args, **kwargs) # not really used since localhost drone will always be listening for commands
                 raise NotImplementedError
             else:
                 self._send({'name': name, 'args': args, 'kwargs': kwargs})
+                if getret:
+                    return self._recv(self.sock) # blocking
         return dummy_dronefunc
