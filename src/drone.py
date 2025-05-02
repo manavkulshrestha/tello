@@ -16,7 +16,6 @@ class Drone:
         '''
         self.local = ip in ['localhost', '127.0.0.1']
 
-
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if self.local:
             self.drone = Tello()
@@ -49,7 +48,7 @@ class Drone:
             data = self._recv(conn) # blocking
             if data:
                 ret = getattr(self.drone, data['name'])(*data['args'], **data['kwargs'])
-                # self._send(ret, conn=conn)
+                self._send(ret, conn=conn)
             else:
                 if self.verbose:
                     print('Closing connection.')
